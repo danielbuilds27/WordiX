@@ -1,277 +1,485 @@
-# WordiX
+# WordiX - Real-time Multiplayer Wordle
 
-Real-time multiplayer Wordle I made for my networks class. You can play with up to 10 people in the same room - everyone guesses the same word and points are based on speed and how many tries it took.
-
-**Built with:** Python (asyncio + websockets) and React + Vite
-
-Computer Networks course, Year 2  
-Transilvania University of Brașov  
-May 2026
+A multiplayer word-guessing game running on WebSocket infrastructure that supports up to 10 concurrent players. Built to demonstrate networking concepts for Computer Networks course.
 
 ---
 
-## Running it
+## ✨ Features
 
-Need Python 3.9+ and Node 18+.
+- **Real-time Multiplayer:** Up to 10 players in the same room
+- **Dual Game Modes:** Normal and Hard mode (forced letter reuse)
+- **Smart Scoring System:** Points based on attempts, speed, and hint usage
+- **Live Competition:** Everyone guesses the same word simultaneously
+- **Instant Feedback:** Color-coded letter hints after each guess
+- **Hint System:** 2 hints per round (30-point penalty each)
+- **Series Mode:** Configurable multi-round tournaments
+- **Room System:** Private 6-character room codes
+- **Cross-platform:** Works on desktop, tablet, and mobile browsers
 
-### Quick start (easiest way)
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Backend | Python 3.9+ | Server logic |
+| Async Framework | asyncio | Concurrent connections |
+| Protocol | WebSockets | Real-time communication |
+| Frontend Framework | React 18 | UI components |
+| Build Tool | Vite 5 | Fast dev server & bundling |
+| State Management | Custom Hooks | WebSocket + game state |
+| Dictionary | English 5-letter words | ~480 valid words |
+
+---
+
+## 📋 Software Stack
+
+- **Language:** Python 3.9+
+- **Async I/O:** asyncio + websockets 12.0
+- **Frontend:** React 18 + Vite 5
+- **Styling:** Custom CSS
+- **Word List:** English dictionary (~480 targets)
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/danielbuilds27/WordiX.git
+cd WordiX
+```
+
+### 2. One-Command Setup (Recommended)
 
 ```bash
 ./start.sh
 ```
 
-Done. The script checks if you have the dependencies, installs what's missing, starts the server in the background, and fires up the dev server. Press Ctrl+C to kill both.
+This will:
+- Check for Python 3.9+ and Node 18+
+- Install system dependencies
+- Create Python virtual environment
+- Install Python packages (`websockets`)
+- Install frontend dependencies (`npm install`)
+- Start WebSocket server (background)
+- Launch Vite dev server
 
-Open `http://localhost:5173` in your browser.
+### 3. Manual Setup (Two Terminals)
 
-### Manual way (if you prefer separate terminals)
-
+**Terminal 1 - Backend:**
 ```bash
-# Terminal 1
 pip3 install websockets
 python3 wordix_ws_server.py
+```
 
-# Terminal 2
+**Terminal 2 - Frontend:**
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Using the virtual environment
+### 4. Access Game
 
-There's a `.venv` folder already set up:
+Open browser at: `http://localhost:5173`
 
-```bash
-source .venv/bin/activate
-python3 wordix_ws_server.py
+---
+
+## 📱 How to Play
+
+### Setup
+1. **Enter Name:** Pick a username (max 20 characters)
+2. **Choose Avatar:** Select an emoji
+3. **Select Mode:**
+   - **Normal:** Standard Wordle rules
+   - **Hard:** Must reuse all revealed letters
+
+### Gameplay
+1. **Create/Join Room:** Generate or enter 6-character room code
+2. **Wait for Players:** Minimum 2 players to start
+3. **Guess Word:** Type 5-letter words (6 attempts max)
+4. **Get Feedback:**
+   - 🟩 **Correct:** Right letter, right position
+   - 🟨 **Present:** Right letter, wrong position
+   - ⬜ **Absent:** Letter not in word
+5. **Use Hints:** Request letter reveals (2 per round, -30 points each)
+6. **Complete Series:** Play through all rounds (default: 5)
+
+### Winning
+- **Per Round:** First correct guess or highest score
+- **Overall:** Highest cumulative score across all rounds
+
+---
+
+## 🌐 Game Modes
+
+### Normal Mode
+- Standard Wordle rules
+- Any valid 5-letter word accepted
+- No restrictions on guesses
+
+### Hard Mode
+- **Forced Letter Reuse:** Every guess MUST include all previously revealed letters
+- **Validation:** `HARD_MODE_VIOLATION` error if rules broken
+- **Strategy:** Requires careful planning
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     WebSocket Server                         │
+│                 (wordix_ws_server.py)                        │
+└─────────────────────────────────────────────────────────────┘
+         │                    │                    │
+    ┌────▼────┐         ┌────▼────┐         ┌────▼────┐
+    │  Room   │         │Detection│         │ Scoring │
+    │ Manager │         │ Engine  │         │ System  │
+    └─────────┘         └─────────┘         └─────────┘
+         │                    │                    │
+    Validates          Wordle Algorithm      Points Calculator
+    Connections        Letter Checking       Speed/Attempt Bonus
+         
+         ↓                    ↓                    ↓
+    
+┌─────────────────────────────────────────────────────────────┐
+│                      React Frontend                          │
+│                    (Vite Dev Server)                         │
+└─────────────────────────────────────────────────────────────┘
+         │                    │                    │
+    ┌────▼────┐         ┌────▼────┐         ┌────▼────┐
+    │  Lobby  │         │ Playing │         │Game Over│
+    │  Phase  │         │  Phase  │         │  Phase  │
+    └─────────┘         └─────────┘         └─────────┘
 ```
 
-### Changing round count
+### Threading Model
 
-Default is 5 rounds. To change:
-
-```bash
-WORDIX_ROUNDS=3 ./start.sh
-```
-
-### Logs
-
-Server writes to `wordix_ws.log` in the project folder (plus stdout). Helpful when things break.
+- **Main Thread:** WebSocket server (asyncio event loop)
+- **Per-Room Tasks:** Async countdown timers
+- **Per-Player:** Async message handlers
+- **Frontend:** Single-threaded React app
 
 ---
 
-## How it works
+## 📊 WebSocket Protocol
 
-1. Open the game, enter your name and pick an emoji
-2. Create a room (Normal or Hard mode) or join one with a code
-3. Once 2+ people join, the round starts automatically
-4. Everyone guesses the same 5-letter word
-5. After the round, scores show up. Play through all rounds, highest total wins
-
-**Hard mode:** You have to reuse all the green/yellow letters you've found in every guess. Way harder than it sounds.
-
-**Hints:** 2 per round. Shows you one letter position but costs 30 points.
-
----
-
-## Under the hood
-
-### Backend
-
-`wordix_ws_server.py` does all the heavy lifting:
-
-- **RoomManager** handles connections, validates names, routes people to rooms
-- **GameRoom** (one per active room) manages:
-  - Round/series timers with asyncio tasks
-  - Player state (attempts, score, hints, etc.)
-  - Wordle algorithm and scoring
-
-### Frontend
-
-Everything game-related is in `useWordixGame.js` - one big custom hook that manages WebSocket and state. Made things way cleaner than scattering state everywhere.
-
-UI switches between phases:
-- **LobbyPhase:** name/server/mode picker (has `EmojiPicker` for avatars)
-- **WaitingPhase:** room code, invite link, player list
-- **PlayingPhase:** grid, keyboard, timer (`GuessGrid`, `Keyboard`, `Countdown`)
-- **GameOverPhase:** round results, next round countdown (`Scoreboard`)
-- **SeriesOverPhase:** final winner announcement
-
-All text is in `translations.js` so it's easy to change or add languages. Error codes from the server get mapped to actual messages there too.
-
-`Toast` component shows notifications (invalid word, hints, etc.).
-
----
-
-## Protocol
-
-Messages are JSON, max 4KB.
+### Message Format
+All messages are UTF-8 JSON with max 4KB frame size.
 
 ### Client → Server
 
-| Type | Fields | Does what |
-|------|--------|-----------|
-| `create_room` | `player_name`, `emoji`, `hard_mode` | Creates room |
-| `join_room` | `player_name`, `emoji`, `code` | Joins room |
-| `guess` | `word` | Submits guess |
-| `hint` | — | Asks for hint |
+| Type | Fields | Description |
+|------|--------|-------------|
+| `create_room` | `player_name`, `emoji`, `hard_mode` | Create private room |
+| `join_room` | `player_name`, `emoji`, `code` | Join existing room |
+| `guess` | `word` | Submit 5-letter guess |
+| `hint` | — | Request letter hint |
 
 ### Server → Client
 
-| Type | Fields | Means |
-|------|--------|-------|
-| `room_joined` | `code` | You're in |
-| `player_update` | `players[]` | Someone joined/left |
-| `game_start` | settings | Round starting |
-| `feedback` | `feedback[]`, `attempts` | Guess result |
-| `hint_response` | `position`, `letter` | Here's your hint |
-| `game_over` | `winner`, `word`, `leaderboard[]` | Round done |
-| `series_over` | `champion`, `standings[]` | Series done |
-| `info` / `error` | `code`, params | Info or error |
+| Type | Fields | Description |
+|------|--------|-------------|
+| `room_joined` | `code` | Room entry confirmed |
+| `player_update` | `players[]` | Roster change |
+| `game_start` | `word_length`, `max_attempts`, `time_limit`, etc. | Round starting |
+| `feedback` | `feedback[]`, `attempts`, `game_over` | Guess response |
+| `hint_response` | `position`, `letter`, `hints_used`, `penalty` | Hint revealed |
+| `game_over` | `winner`, `word`, `leaderboard[]` | Round ended |
+| `series_over` | `champion`, `standings[]` | Series complete |
+| `info` / `error` | `code`, optional params | Status messages |
 
-### Common errors
+### Error Codes
 
-- `ROOM_FULL` — 10 players max
-- `NAME_TAKEN` — pick another name
-- `WRONG_LENGTH` — needs to be 5 letters
-- `NOT_IN_DICTIONARY` — not a valid word
-- `RATE_LIMITED` — too fast, wait 1.5s between guesses
-- `HARD_MODE_VIOLATION` — forgot to reuse a revealed letter
-- `NO_HINTS_LEFT` — you used both already
-
-There's more in the code.
-
----
-
-## Scoring
-
-Per round:
-
-- Start with 100 points
-- `(7 - attempts) × 20` for fewer tries
-- Up to 60 bonus for speed
-- -30 per hint used
-
-**Range:** 0-280 points per round
-
-Don't guess it? 0 points. Scores stack across rounds.
+| Code | Trigger | Resolution |
+|------|---------|------------|
+| `ROOM_FULL` | 10 players reached | Wait or create new room |
+| `NAME_TAKEN` | Duplicate name | Choose different name |
+| `WRONG_LENGTH` | Not 5 letters | Type 5-letter word |
+| `NOT_IN_DICTIONARY` | Invalid word | Try different word |
+| `RATE_LIMITED` | <1.5s between guesses | Wait before next guess |
+| `HARD_MODE_VIOLATION` | Missing revealed letter | Include all revealed letters |
+| `NO_HINTS_LEFT` | Used 2 hints | Continue without hints |
 
 ---
 
-## Security
+## 📈 Scoring System
 
-Basic stuff to prevent abuse:
-
-- **Timeout:** First message needs to arrive in 10s
-- **Name validation:** 20 chars max, no weird characters
-- **Rate limit:** 1.5s cooldown between guesses
-- **Message cap:** 4KB limit on frames
-
-Not bulletproof but good enough for a class project.
-
----
-
-## Files
+### Formula
 
 ```
-Wordle/
-├── start.sh                     # One-command start script
-├── wordix_ws_server.py          # Server
-├── wordix_ws.log                # Server logs
+Total Score = Base + Attempt Bonus + Speed Bonus - Hint Penalty
+```
+
+### Components
+
+| Component | Formula | Range | Example |
+|-----------|---------|-------|---------|
+| **Base** | Fixed | 100 pts | 100 |
+| **Attempt Bonus** | `(7 - attempts) × 20` | 20-120 pts | 3 attempts → 80 pts |
+| **Speed Bonus** | `max(0, 60 - seconds)` | 0-60 pts | 25s → 35 pts |
+| **Hint Penalty** | `hints_used × 30` | 0-60 pts | 1 hint → -30 pts |
+
+### Example Calculation
+
+```
+Player guesses in 3 attempts, 25 seconds, 1 hint used:
+Base:          100
+Attempt:       (7-3)×20 = 80
+Speed:         60-25 = 35
+Hint:          1×30 = -30
+────────────────────────
+Total:         185 points
+```
+
+**Failed guess:** 0 points (no partial credit)
+
+---
+
+## 🔐 Security Features
+
+| Measure | Implementation | Purpose |
+|---------|----------------|---------|
+| **Connection Timeout** | 10s first message | Prevent idle connections |
+| **Name Validation** | Max 20 chars, `\w` only | Prevent injection |
+| **Rate Limiting** | 1.5s between guesses | Anti-spam |
+| **Message Size Cap** | 4KB frame limit | DoS prevention |
+| **Input Sanitization** | Word validation | Dictionary enforcement |
+
+---
+
+## 📂 Project Structure
+
+```
+WordiX/
+├── start.sh                     # One-command launcher
+├── wordix_ws_server.py          # WebSocket server
+├── wordix_ws.log                # Runtime logs (auto-generated)
+├── .env.example                 # Environment template
+├── .gitignore                   # Git exclusions
+├── requirements.txt             # Python dependencies
 ├── data/
-│   └── targets_en.txt           # ~480 words
+│   └── targets_en.txt           # Word list (~480 words)
 ├── docs/
-│   ├── 1_enunt.md              # Rules (Romanian)
-│   ├── 2_implementare.md       # Implementation (Romanian)
-│   └── 3_structuri.md          # Data structures (Romanian)
+│   ├── 1_enunt.md              # Game rules (Romanian)
+│   ├── 2_implementare.md       # Implementation notes
+│   └── 3_structuri.md          # Data structures reference
 └── frontend/
-    ├── src/
-    │   ├── App.jsx
-    │   ├── translations.js      # All UI text
-    │   ├── hooks/
-    │   │   └── useWordixGame.js
-    │   └── components/
-    │       ├── LobbyPhase.jsx
-    │       ├── WaitingPhase.jsx
-    │       ├── PlayingPhase.jsx
-    │       ├── GameOverPhase.jsx
-    │       ├── SeriesOverPhase.jsx
-    │       ├── GuessGrid.jsx
-    │       ├── Keyboard.jsx
-    │       ├── Countdown.jsx
-    │       ├── EmojiPicker.jsx
-    │       ├── PlayerList.jsx
-    │       ├── Scoreboard.jsx
-    │       └── Toast.jsx
-    └── package.json
+    ├── package.json
+    ├── vite.config.js
+    ├── index.html
+    └── src/
+        ├── App.jsx              # Main router
+        ├── App.css              # Global styles
+        ├── translations.js      # i18n strings
+        ├── hooks/
+        │   └── useWordixGame.js # WebSocket + state hook
+        └── components/
+            ├── LobbyPhase.jsx           # Name/server selection
+            ├── WaitingPhase.jsx         # Room lobby
+            ├── PlayingPhase.jsx         # Active game
+            ├── GameOverPhase.jsx        # Round results
+            ├── SeriesOverPhase.jsx      # Final standings
+            ├── GuessGrid.jsx            # 6×5 letter grid
+            ├── Keyboard.jsx             # On-screen keyboard
+            ├── Countdown.jsx            # Round timer
+            ├── EmojiPicker.jsx          # Avatar selector
+            ├── PlayerList.jsx           # Player roster
+            ├── Scoreboard.jsx           # Score breakdown
+            └── Toast.jsx                # Notifications
 ```
 
 ---
 
-## What I learned
+## 🧪 Configuration
 
-First time really using WebSockets (not just basic HTTP). Some takeaways:
+### Environment Variables
 
-**AsyncIO** was confusing initially but it clicks eventually. Nice for handling multiple connections. Each room gets its own async tasks for timers and game logic.
+```bash
+# Server settings
+WORDIX_ROUNDS=5          # Number of rounds per series
+WORDIX_PORT=8765         # WebSocket port
+WORDIX_HOST=0.0.0.0      # Listen address
 
-**React state management** gets messy with multiple game phases. Putting everything in one hook (`useWordixGame`) helped a lot. At first I had state scattered everywhere and it was a nightmare.
+# Game settings
+MAX_PLAYERS=10           # Room capacity
+TIME_LIMIT=120           # Round duration (seconds)
+MAX_HINTS=2              # Hints per player per round
+```
 
-**Hard mode validation** took more work than expected. You have to track which letters are revealed and verify every guess includes them. Got it wrong the first couple times.
+### Changing Round Count
 
-**Race conditions** are real. When multiple people finish at the same millisecond, you need to be careful about winner logic. Used locks to prevent weirdness.
+```bash
+# Via environment variable
+WORDIX_ROUNDS=3 ./start.sh
 
----
-
-## Could be better
-
-Things I'd add with more time:
-
-- **Persistent stats** - SQLite to track wins, averages, streaks
-- **Password-protected rooms** - right now anyone with the code can join
-- **More modes** - blitz mode (30s rounds), co-op, daily challenge
-- **Better word list** - current one's fine but could be bigger/better
-- **Mobile app** - React Native version
-- **Spectator mode** - watch games without playing
-- **Chat** - would be fun to trash talk between rounds
-
-But for a networks project it's solid as-is.
+# Or edit .env file
+echo "WORDIX_ROUNDS=3" > .env
+```
 
 ---
 
-## Testing
+## 📊 Performance Metrics
 
-Tried it with:
-- 2 players (minimum to start)
-- 5 players (sweet spot)
-- 10 players (max capacity)
-
-Works on localhost and LAN. Haven't tested over internet but should work if you port forward.
-
-Had 4 friends test it - feedback was good, especially hard mode where everyone struggles together.
-
----
-
-## Known bugs
-
-Not perfect:
-
-- **Timer drift:** Client and server countdowns can be off by 1-2 seconds. Annoying but not game-breaking.
-- **No reconnect:** If you DC mid-round you're out until next round. Might add this later.
-- **English only:** Word list is all English. Would be cool to add Romanian/other languages.
-
-Nothing major.
+| Metric | Target | Notes |
+|--------|--------|-------|
+| **Max Concurrent Rooms** | 50+ | Tested with asyncio |
+| **Players Per Room** | 2-10 | Hard limit enforced |
+| **Message Latency** | <100ms | Local network |
+| **Server RAM Usage** | ~150MB | With 10 active rooms |
+| **Frontend Bundle** | ~500KB | Gzipped |
+| **TTFB** | <50ms | Vite dev server |
 
 ---
 
-## Final notes
+## 🐛 Troubleshooting
 
-Fun project overall. Learned a ton about WebSockets, async stuff, and managing complex state in React. Way more interesting than solo Wordle.
+### WebSocket Connection Failed
 
-If you want to try it, clone the repo and run `./start.sh`. Pretty self-explanatory from there.
+```bash
+# Check if server is running
+ps aux | grep wordix_ws_server
 
-Code's all there if you want to poke around.
+# Check port availability
+netstat -an | grep 8765
+
+# Restart server
+pkill -f wordix_ws_server.py
+python3 wordix_ws_server.py
+```
+
+### Frontend Won't Build
+
+```bash
+# Clear node_modules
+rm -rf frontend/node_modules frontend/package-lock.json
+
+# Reinstall
+cd frontend && npm install
+
+# Try with legacy peer deps
+npm install --legacy-peer-deps
+```
+
+### Dictionary Not Loading
+
+```bash
+# Verify file exists
+ls -lh data/targets_en.txt
+
+# Check file permissions
+chmod 644 data/targets_en.txt
+```
+
+### Port Already in Use
+
+```bash
+# Find process using port 8765
+lsof -ti:8765
+
+# Kill process
+kill -9 $(lsof -ti:8765)
+
+# Or change port
+WORDIX_PORT=8766 python3 wordix_ws_server.py
+```
 
 ---
 
-danielbuilds27  
-May 11, 2026
+## 👥 Team
+
+**Developer:** Daniel Matei ([@danielbuilds27](https://github.com/danielbuilds27))
+
+**Timeline:** April 2026 - May 2026 (6 weeks)  
+**Institution:** Transilvania University of Brașov  
+**Course:** Computer Networks, Year 2  
+**Project Type:** Individual coursework
+
+---
+
+## 🧪 Testing
+
+### Manual Testing
+
+**Tested scenarios:**
+- ✅ 2-player minimum (game start validation)
+- ✅ 10-player maximum (room capacity)
+- ✅ Normal mode (standard rules)
+- ✅ Hard mode (forced letter reuse)
+- ✅ Hint system (2 per round, -30 points)
+- ✅ Series completion (5 rounds)
+- ✅ Disconnection handling (mid-game disconnect)
+
+### Known Issues
+
+- **Timer Drift:** Client/server countdown can desync by 1-2 seconds
+- **No Reconnect:** Disconnected players can't rejoin current round
+- **English Only:** Dictionary is English-only (no i18n yet)
+
+---
+
+## 🎓 What I Learned
+
+### Technical Skills
+
+- **WebSocket Protocol:** Real-time bidirectional communication
+- **AsyncIO:** Concurrent request handling with coroutines
+- **React Hooks:** Custom hooks for complex state management
+- **Game State Management:** Multi-phase UI with WebSocket sync
+- **Rate Limiting:** Preventing spam and abuse
+
+### Challenges Overcome
+
+1. **Race Conditions:** Multiple players finishing simultaneously → Used asyncio locks
+2. **State Synchronization:** Keeping client/server in sync → Centralized state in useWordixGame hook
+3. **Hard Mode Validation:** Tracking revealed letters across guesses → Server-side state management
+4. **Timer Accuracy:** Client/server countdown drift → Accepted 1-2s tolerance
+
+---
+
+## 🚀 Future Improvements
+
+### Planned Features
+- [ ] **Persistent Stats:** SQLite database for win rates, streaks
+- [ ] **Password Rooms:** Optional room passwords
+- [ ] **Spectator Mode:** Watch games without playing
+- [ ] **More Languages:** Spanish, French word lists
+- [ ] **Chat System:** In-game text chat
+- [ ] **Daily Challenge:** Global daily word
+
+### Technical Improvements
+- [ ] **Reconnection:** Mid-game rejoin capability
+- [ ] **Mobile App:** React Native version
+- [ ] **Analytics:** Player behavior tracking
+- [ ] **Admin Panel:** Room management dashboard
+
+---
+
+## 📄 License
+
+This project is for educational purposes as part of Computer Networks coursework.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Institution:** Transilvania University of Brașov
+- **Inspiration:** Original Wordle by Josh Wardle
+- **Libraries:** Python websockets, React, Vite
+
+---
+
+## 📞 Support
+
+**Issues:** [GitHub Issues](https://github.com/danielbuilds27/WordiX/issues)  
+**Documentation:** [docs/](docs/)  
+**Contact:** [@danielbuilds27](https://github.com/danielbuilds27)
+
+---
+
+**⭐ Star this repo if you found it useful!**
+
+Last updated: May 11, 2026
